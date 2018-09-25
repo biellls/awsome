@@ -1,7 +1,7 @@
 import boto3
 from moto import mock_s3
 from awsome import s3
-from awsome.development import dry_run, debug_environment
+from awsome.development import dry_run, s3_sandbox
 
 
 def create_s3(prod=False):
@@ -161,9 +161,13 @@ def test_dry_run(capsys):
         captured = capsys.readouterr()
         assert captured.out == 'aws s3 rm s3://b1/foo\n'
 
+        s3.move_key('b1', 'foo', 'b2', 'bar/baz')
+        captured = capsys.readouterr()
+        assert captured.out == 'aws s3 mv s3://b1/foo s3://b2/bar/baz\n'
+
 
 def test_debug_environment():
-    with debug_environment(['b1']):
+    with s3_sandbox(['b1']):
         s3.upload_string('foo baz', 'b1', '/bam.txt')
         s3.ls('s3://b1')
     assert True
