@@ -28,3 +28,10 @@ keys = s3.ls('s3://bucket/key')
 # List all keys with the prefix key
 keys = s3.ls('s3://bucket/key', recursive=True)
 ```
+
+
+    create_test_data()
+    print('Test bucket:')
+    pp.pprint(s3.ls('s3://testbucket/', recursive=True))
+    print('\nProd bucket:')
+    pp.pprint(s3.ls('s3://prodbucket/', recursive=True))
