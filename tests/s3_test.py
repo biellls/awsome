@@ -1,7 +1,8 @@
 import boto3
+import pytest
 from moto import mock_s3
 from awsome import s3
-from awsome.development import dry_run, s3_sandbox
+from awsome.playground import dry_run_sandbox, s3_sandbox, UnsupportedEnvironment, create_mock_keys
 
 
 def create_s3(prod=False):
@@ -37,6 +38,18 @@ def test_ls_bucket():
 
     files = s3.ls('s3://testing/')
     assert set(files) == {'foo/', 'baz.txt'}
+
+
+@mock_s3
+def test_ls_all():
+    create_s3()
+    create_s3(prod=True)
+
+    with pytest.raises(ValueError):
+        s3.ls(recursive=True)
+
+    buckets = s3.ls()
+    assert set(buckets) == {'testing', 'production'}
 
 
 @mock_s3
@@ -139,8 +152,8 @@ def test_cp_local(tmpdir):
     assert q.read() == 'content'
 
 
-def test_dry_run(capsys):
-    with dry_run():
+def test_dry_run_sandbox(capsys):
+    with dry_run_sandbox():
         s3.ls('s3://b1')
         captured = capsys.readouterr()
         assert captured.out == 'aws s3 ls s3://b1\n'
@@ -163,11 +176,27 @@ def test_dry_run(capsys):
 
         s3.move_key('b1', 'foo', 'b2', 'bar/baz')
         captured = capsys.readouterr()
-        assert captured.out == 'aws s3 mv s3://b1/foo s3://b2/bar/baz\n'
+        assert captured.out == 'aws s3 cp s3://b1/foo s3://b2/bar/baz\naws s3 rm s3://b1/foo\n'
 
 
-def test_debug_environment():
-    with s3_sandbox(['b1']):
+def test_s3_sandbox():
+    with s3_sandbox(['b1'], False):
         s3.upload_string('foo baz', 'b1', '/bam.txt')
         s3.ls('s3://b1')
     assert True
+
+
+def test_create_mock_keys():
+    keys = ['foo/a.txt', 'foo/b.txt', 'c.txt']
+
+    with pytest.raises(UnsupportedEnvironment):
+        create_mock_keys('testing', keys)
+
+    with s3_sandbox(['testing'], False):
+        with pytest.raises(UnsupportedEnvironment):
+            create_mock_keys('testing', keys)
+
+    with s3_sandbox(['testing'], create_marker_bucket=True):
+        create_mock_keys('testing', keys)
+        files = s3.ls('s3://testing/', recursive=True)
+        assert set(files) == {'foo/a.txt', 'foo/b.txt', 'c.txt'}

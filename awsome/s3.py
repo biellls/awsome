@@ -1,3 +1,4 @@
+import logging
 from io import BytesIO
 from typing import Set, Union, List
 
@@ -60,7 +61,11 @@ def get_prefix(key, depth=-1):
     return prefix
 
 
-def ls(uri: str, recursive: bool=False, session=None) -> List[str]:
+def _make_session():
+    return boto3
+
+
+def ls(uri: str=None, recursive: bool=False, session=None) -> List[str]:
     """
     Treats the uri like a directory and lists the keys and 'directories' inside it.
     If recursive is used it lists all the keys with the same prefix
@@ -70,10 +75,17 @@ def ls(uri: str, recursive: bool=False, session=None) -> List[str]:
     :param session: boto3 session. Creates default one if None given
     :return: List of keys
     """
-    if session is None:
-        s3 = boto3.client('s3')
-    else:
-        s3 = session.client('s3')
+    print(f"aws s3 ls {'--recursive ' if recursive else ''}{uri}")
+
+    session = session or _make_session()
+
+    if uri is None:
+        s3 = session.resource('s3')
+        if recursive:
+            raise ValueError('List buckets does not support recursive')
+        return [bucket.name for bucket in s3.buckets.all()]
+
+    s3 = session.client('s3')
 
     bucket, key = parse_s3_uri(uri)
 
@@ -94,57 +106,53 @@ def ls(uri: str, recursive: bool=False, session=None) -> List[str]:
 
 
 def rm_key(bucket, key, session=None):
-    if session is None:
-        s3 = boto3.resource('s3')
-    else:
-        s3 = session.resource('s3')
+    print(f"aws s3 rm s3://{bucket}/{key}")
+
+    session = session or _make_session()
+    s3 = session.resource('s3')
 
     s3.Object(bucket, key).delete()
 
 
 def rm(uri, session=None):
+    print(f"aws s3 rm {uri}")
+
     bucket, key = parse_s3_uri(uri)
     rm_key(bucket, key, session)
 
 
 def copy_key(from_bucket, from_key, to_bucket, to_key=None, session=None):
-    if session is None:
-        s3 = boto3.resource('s3')
-    else:
-        s3 = session.resource('s3')
+    session = session or _make_session()
+    s3 = session.resource('s3')
 
     if to_key is not None and to_key.endswith('/'):
         to_key += from_key.split('/')[-1]
+
+    print(f'aws s3 cp s3://{from_bucket}/{from_key} s3://{to_bucket}/{to_key or from_key}')
 
     s3.Object(to_bucket, to_key or from_key).copy_from(CopySource=f'{from_bucket}/{from_key}')
     return f'{to_bucket}/{to_key or from_key}'
 
 
 def download_key(bucket, key, file_path, session=None):
-    if session is None:
-        s3 = boto3.resource('s3')
-    else:
-        s3 = session.resource('s3')
+    session = session or _make_session()
+    s3 = session.resource('s3')
 
     s3.Bucket(bucket).download_file(key, file_path)
     return file_path
 
 
 def read_key(bucket, key, session=None):
-    if session is None:
-        s3 = boto3.resource('s3')
-    else:
-        s3 = session.resource('s3')
+    session = session or _make_session()
+    s3 = session.resource('s3')
 
     obj = s3.Object(bucket, key)
     return obj.get()['Body'].read().decode('utf-8')
 
 
 def upload_file(file_path, bucket, key, encrypt=False, session=None):
-    if session is None:
-        s3 = boto3.client('s3')
-    else:
-        s3 = session.client('s3')
+    session = session or _make_session()
+    s3 = session.client('s3')
 
     extra_args = {}
     if encrypt:
@@ -155,10 +163,8 @@ def upload_file(file_path, bucket, key, encrypt=False, session=None):
 
 
 def upload_string(data: str, bucket, key, encrypt=False, session=None):
-    if session is None:
-        s3 = boto3.client('s3')
-    else:
-        s3 = session.client('s3')
+    session = session or _make_session()
+    s3 = session.client('s3')
 
     buffer = BytesIO(data.encode('utf-8'))
 
@@ -171,6 +177,8 @@ def upload_string(data: str, bucket, key, encrypt=False, session=None):
 
 def cp(from_uri, to_uri, session=None):
     # TODO error control for invalid uris
+    print(f"aws s3 cp {from_uri} {to_uri}")
+
     if uri_type(from_uri) == 's3':
         from_bucket, from_key = parse_s3_uri(from_uri)
 
@@ -195,6 +203,8 @@ def move_key(from_bucket, from_key, to_bucket, to_key=None, session=None):
 
 
 def mv(from_uri, to_uri, session=None):
+    print(f"aws s3 mv {from_uri} {to_uri}")
+
     from_bucket, from_key = parse_s3_uri(from_uri)
     to_bucket, to_key = parse_s3_uri(to_uri)
 
