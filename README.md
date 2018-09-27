@@ -266,7 +266,7 @@ One caveat is that create_mock_keys requires a marker bucket as a validation bef
 ```python
 from awsome.playground import s3_sandbox
 
-with s3_sandbox(buckets=['bi-analytics-hbg-test', 'bi-analytics-hbg'], create_marker_bucket=True):
+with s3_sandbox(buckets=['test-bucket', 'production-bucket'], create_marker_bucket=True):
     create_mock_keys('test-bucket', test_keys)
     create_mock_keys('production-bucket', prod_keys)
     
