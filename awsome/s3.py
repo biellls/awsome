@@ -1,47 +1,12 @@
-import logging
 from io import BytesIO
-from typing import Set, Union, List
+from typing import List
 
 import boto3
 
+from awsome import log
+from awsome.uris import peel, parse_s3_uri, uri_type, format_s3_uri
 
-def peel(uri):
-    if uri.startswith('s3://'):
-        return uri[len('s3://'):]
-    elif uri.startswith('file://'):
-        return uri[len('file://'):]
-
-    raise ValueError(f'Invalid URI format for {uri}')
-
-
-# TODO: use urlparse from urllib?
-def parse_s3_uri(uri):
-    if not uri.startswith('s3://'):
-        raise ValueError(f'S3 URI must start with s3://: {uri}')
-
-    peeled_uri = peel(uri)
-    bucket = peeled_uri.split('/')[0]
-    key = peeled_uri[len(bucket + '/'):]
-
-    return bucket, key
-
-
-def format_s3_uri(bucket, key):
-    if bucket.endswith('/'):
-        bucket = bucket[:-1]
-    if key.startswith('/'):
-        key = key[1:]
-
-    return f's3://{bucket}/{key}'
-
-
-def uri_type(uri):
-    if uri.startswith('s3://'):
-        return 's3'
-    elif uri.startswith('file://'):
-        return 'file'
-
-    raise ValueError(f'Invalid URI format for {uri}')
+SUCCESS = 'success'
 
 
 def key_depth(key):
@@ -75,7 +40,7 @@ def ls(uri: str=None, recursive: bool=False, session=None) -> List[str]:
     :param session: boto3 session. Creates default one if None given
     :return: List of keys
     """
-    print(f"aws s3 ls {'--recursive ' if recursive else ''}{uri}")
+    log.ls(uri, recursive, session)
 
     session = session or _make_session()
 
@@ -106,35 +71,41 @@ def ls(uri: str=None, recursive: bool=False, session=None) -> List[str]:
 
 
 def rm_key(bucket, key, session=None):
-    print(f"aws s3 rm s3://{bucket}/{key}")
+    log.rm_key(bucket, key, session)
 
     session = session or _make_session()
     s3 = session.resource('s3')
 
     s3.Object(bucket, key).delete()
 
+    return format_s3_uri(bucket, key)
+
 
 def rm(uri, session=None):
-    print(f"aws s3 rm {uri}")
-
     bucket, key = parse_s3_uri(uri)
-    rm_key(bucket, key, session)
+    removed = rm_key(bucket, key, session)
+
+    return removed
 
 
 def copy_key(from_bucket, from_key, to_bucket, to_key=None, session=None):
     session = session or _make_session()
     s3 = session.resource('s3')
 
-    if to_key is not None and to_key.endswith('/'):
+    if to_key is None:
+        to_key = from_key
+    elif to_key.endswith('/'):
         to_key += from_key.split('/')[-1]
 
-    print(f'aws s3 cp s3://{from_bucket}/{from_key} s3://{to_bucket}/{to_key or from_key}')
+    log.copy_key(from_bucket, from_key, to_bucket, to_key, session)
 
-    s3.Object(to_bucket, to_key or from_key).copy_from(CopySource=f'{from_bucket}/{from_key}')
-    return f'{to_bucket}/{to_key or from_key}'
+    s3.Object(to_bucket, to_key).copy_from(CopySource=f'{from_bucket}/{from_key}')
+    return format_s3_uri(to_bucket, to_key)
 
 
 def download_key(bucket, key, file_path, session=None):
+    log.download_key(bucket, key, file_path, session)
+
     session = session or _make_session()
     s3 = session.resource('s3')
 
@@ -143,6 +114,8 @@ def download_key(bucket, key, file_path, session=None):
 
 
 def read_key(bucket, key, session=None):
+    log.read_key(bucket, key, session)
+
     session = session or _make_session()
     s3 = session.resource('s3')
 
@@ -151,6 +124,8 @@ def read_key(bucket, key, session=None):
 
 
 def upload_file(file_path, bucket, key, encrypt=False, session=None):
+    log.upload_file(file_path, bucket, key, encrypt, session)
+
     session = session or _make_session()
     s3 = session.client('s3')
 
@@ -159,10 +134,13 @@ def upload_file(file_path, bucket, key, encrypt=False, session=None):
         extra_args['ServerSideEncryption'] = "AES256"
 
     s3.upload_file(file_path, bucket, key, ExtraArgs=extra_args)
-    return f'{bucket}/{key}'
+
+    return format_s3_uri(bucket, key)
 
 
 def upload_string(data: str, bucket, key, encrypt=False, session=None):
+    log.upload_string(data, bucket, key, encrypt, session)
+
     session = session or _make_session()
     s3 = session.client('s3')
 
@@ -174,11 +152,11 @@ def upload_string(data: str, bucket, key, encrypt=False, session=None):
 
     s3.upload_fileobj(buffer, bucket, key, ExtraArgs=extra_args)
 
+    return format_s3_uri(bucket, key)
+
 
 def cp(from_uri, to_uri, session=None):
     # TODO error control for invalid uris
-    print(f"aws s3 cp {from_uri} {to_uri}")
-
     if uri_type(from_uri) == 's3':
         from_bucket, from_key = parse_s3_uri(from_uri)
 
@@ -198,13 +176,13 @@ def cp(from_uri, to_uri, session=None):
 
 
 def move_key(from_bucket, from_key, to_bucket, to_key=None, session=None):
-    copy_key(from_bucket, from_key, to_bucket, to_key, session)
+    destination = copy_key(from_bucket, from_key, to_bucket, to_key, session)
     rm_key(from_bucket, from_key, session)
+
+    return destination
 
 
 def mv(from_uri, to_uri, session=None):
-    print(f"aws s3 mv {from_uri} {to_uri}")
-
     from_bucket, from_key = parse_s3_uri(from_uri)
     to_bucket, to_key = parse_s3_uri(to_uri)
 

@@ -154,29 +154,60 @@ def test_cp_local(tmpdir):
 
 def test_dry_run(capsys):
     with dry_run(safe=False):
-        s3.ls('s3://b1')
+        output = s3.ls('s3://b1')
         captured = capsys.readouterr()
         assert captured.out == 'aws s3 ls s3://b1\n'
+        assert output is None
 
-        s3.ls('s3://b1', recursive=True)
+        output = s3.ls('s3://b1', recursive=True)
         captured = capsys.readouterr()
         assert captured.out == 'aws s3 ls --recursive s3://b1\n'
+        assert output is None
 
-        s3.cp('s3://b1/foo', 's3://b2/bar/baz')
+        output = s3.cp('s3://b1/foo', 's3://b2/bar/baz')
         captured = capsys.readouterr()
         assert captured.out == 'aws s3 cp s3://b1/foo s3://b2/bar/baz\n'
+        assert output is None
 
-        s3.mv('s3://b1/foo', 's3://b2/bar/baz')
+        output = s3.mv('s3://b1/foo', 's3://b2/bar/baz')
         captured = capsys.readouterr()
         assert captured.out == 'aws s3 mv s3://b1/foo s3://b2/bar/baz\n'
+        assert output is None
 
-        s3.rm('s3://b1/foo')
+        output = s3.rm('s3://b1/foo')
         captured = capsys.readouterr()
         assert captured.out == 'aws s3 rm s3://b1/foo\n'
+        assert output is None
 
-        s3.move_key('b1', 'foo', 'b2', 'bar/baz')
+        output = s3.move_key('b1', 'foo', 'b2', 'bar/baz')
         captured = capsys.readouterr()
         assert captured.out == 'aws s3 cp s3://b1/foo s3://b2/bar/baz\naws s3 rm s3://b1/foo\n'
+        assert output is None
+
+        output = s3.copy_key('b1', 'foo', 'b2', 'bar/baz')
+        captured = capsys.readouterr()
+        assert captured.out == 'aws s3 cp s3://b1/foo s3://b2/bar/baz\n'
+        assert output is None
+
+        output = s3.download_key('b1', 'foo', '/tmp/a.txt')
+        captured = capsys.readouterr()
+        assert captured.out == 'aws s3 cp s3://b1/foo file:///tmp/a.txt\n'
+        assert output is None
+
+        output = s3.read_key('b1', 'foo')
+        captured = capsys.readouterr()
+        assert captured.out == 'aws s3 cp s3://b1/foo -\n'
+        assert output is None
+
+        output = s3.upload_file('/tmp/a.txt', 'b1', 'foo')
+        captured = capsys.readouterr()
+        assert captured.out == 'aws s3 cp file:///tmp/a.txt s3://b1/foo\n'
+        assert output is None
+
+        output = s3.upload_string('lorem ipsum', 'b1', 'foo')
+        captured = capsys.readouterr()
+        assert captured.out == "echo 'lorem ipsum' | aws s3 cp - s3://b1/foo\n"
+        assert output is None
 
 
 def test_s3_sandbox():

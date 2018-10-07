@@ -9,7 +9,7 @@ from mock import patch
 from moto import mock_s3
 from requests import ConnectionError
 
-from awsome import fakes, s3
+from awsome import log, s3
 
 
 class UnsupportedEnvironment(Exception):
@@ -42,18 +42,22 @@ def dry_run(patch_ls=True, safe=True):
     if safe and not inside_sandbox():
         raise UnsupportedEnvironment('Cannot be executed outside a sandbox in safe mode.')
 
-    with patch('awsome.s3.cp') as cp_mock, patch('awsome.s3.mv') as mv_mock, patch('awsome.s3.rm_key') as rm_key_mock, \
-            patch('awsome.s3.rm') as rm_mock, patch('awsome.s3.copy_key') as copy_key_mock:
+    with patch('awsome.s3.mv') as mv_mock, patch('awsome.s3.rm_key') as rm_key_mock, \
+            patch('awsome.s3.copy_key') as copy_key_mock, patch('awsome.s3.download_key') as download_key_mock, \
+            patch('awsome.s3.read_key') as read_key_mock, patch('awsome.s3.upload_file') as upload_file_mock, \
+            patch('awsome.s3.upload_string') as upload_string_mock:
 
-        cp_mock.side_effect = fakes.fake_cp
-        mv_mock.side_effect = fakes.fake_mv
-        rm_key_mock.side_effect = fakes.fake_rm_key
-        rm_mock.side_effect = fakes.fake_rm
-        copy_key_mock.side_effect = fakes.fake_copy_key
+        mv_mock.side_effect = log.mv
+        rm_key_mock.side_effect = log.rm_key
+        copy_key_mock.side_effect = log.copy_key
+        download_key_mock.side_effect = log.download_key
+        read_key_mock.side_effect = log.read_key
+        upload_file_mock.side_effect = log.upload_file
+        upload_string_mock.side_effect = log.upload_string
 
         if patch_ls:
             with patch('awsome.s3.ls') as ls_mock:
-                ls_mock.side_effect = fakes.fake_ls
+                ls_mock.side_effect = log.ls
                 yield
         else:
             yield
