@@ -2,7 +2,7 @@ import boto3
 import pytest
 from moto import mock_s3
 from awsome import s3
-from awsome.playground import dry_run_sandbox, s3_sandbox, UnsupportedEnvironment, create_mock_keys
+from awsome.playground import s3_sandbox, UnsupportedEnvironment, create_mock_keys, dry_run
 
 
 def create_s3(prod=False):
@@ -152,8 +152,8 @@ def test_cp_local(tmpdir):
     assert q.read() == 'content'
 
 
-def test_dry_run_sandbox(capsys):
-    with dry_run_sandbox():
+def test_dry_run(capsys):
+    with dry_run(safe=False):
         s3.ls('s3://b1')
         captured = capsys.readouterr()
         assert captured.out == 'aws s3 ls s3://b1\n'
@@ -180,7 +180,7 @@ def test_dry_run_sandbox(capsys):
 
 
 def test_s3_sandbox():
-    with s3_sandbox(['b1'], False):
+    with s3_sandbox(['b1']):
         s3.upload_string('foo baz', 'b1', '/bam.txt')
         s3.ls('s3://b1')
     assert True
@@ -192,11 +192,16 @@ def test_create_mock_keys():
     with pytest.raises(UnsupportedEnvironment):
         create_mock_keys('testing', keys)
 
-    with s3_sandbox(['testing'], False):
-        with pytest.raises(UnsupportedEnvironment):
-            create_mock_keys('testing', keys)
-
-    with s3_sandbox(['testing'], create_marker_bucket=True):
+    with s3_sandbox(['testing']):
         create_mock_keys('testing', keys)
         files = s3.ls('s3://testing/', recursive=True)
         assert set(files) == {'foo/a.txt', 'foo/b.txt', 'c.txt'}
+
+
+def test_safe_dry_run():
+    with pytest.raises(UnsupportedEnvironment):
+        with dry_run():
+            s3.ls('s3://aaa')
+
+    with dry_run(safe=False):
+        s3.ls('s3://aaa')
