@@ -138,8 +138,9 @@ def upload_file(file_path, bucket, key, encrypt=False, session=None):
     return format_s3_uri(bucket, key)
 
 
-def upload_string(data: str, bucket, key, encrypt=False, session=None):
-    log.upload_string(data, bucket, key, encrypt, session)
+def upload_string(data: str, bucket, key, encrypt=False, session=None, silent=False):
+    if not silent:
+        log.upload_string(data, bucket, key, encrypt, session)
 
     session = session or _make_session()
     s3 = session.client('s3')

@@ -77,10 +77,10 @@ def aws_profile(profile: str):
         yield
 
 
-def create_mock_keys(bucket: str, keys: List[str]):
+def create_mock_keys(bucket: str, keys: List[str], silent=True):
     if not inside_sandbox():
         raise UnsupportedEnvironment('Cannot create mock keys outside a sandbox.')
 
-    data = ''.join(random.choice(string.ascii_letters) for _ in range(random.randint(10, 24)))
     for key in keys:
-        s3.upload_string(data=data, bucket=bucket, key=key)
+        data = ''.join(random.choice(string.ascii_letters) for _ in range(random.randint(10, 24)))
+        s3.upload_string(data=data, bucket=bucket, key=key, silent=silent)

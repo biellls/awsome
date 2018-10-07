@@ -2,7 +2,7 @@ from awsome.uris import format_s3_uri
 
 
 def ls(uri: str, recursive: bool=False, session=None):
-    print(f"aws s3 ls {'--recursive ' if recursive else ''}{uri}")
+    print(f"aws s3 ls {'--recursive ' if recursive else ''}{uri or ''}")
 
 
 def cp(from_uri, to_uri, session=None):
@@ -50,7 +50,7 @@ def upload_file(file_path, bucket, key, encrypt=False, session=None):
     cp(file_uri, s3_uri, session)
 
 
-def upload_string(data: str, bucket, key, encrypt=False, session=None):
+def upload_string(data: str, bucket, key, encrypt=False, session=None, silent=True):
     s3_uri = format_s3_uri(bucket, key)
 
     print(f"echo '{data}' | aws s3 cp - {s3_uri}")

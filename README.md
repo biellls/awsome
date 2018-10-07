@@ -36,7 +36,7 @@ with boto3_session(session):
     buckets = s3.ls()
     
 # Profile defined in ~/.aws/credentials
-from awsome.playground import with_profile
+from awsome.playground import aws_profile
 
 with aws_profile(profile='myprofile'):
     buckets = s3.ls()
@@ -50,7 +50,7 @@ We will rename all the files from a bucket with a foo/bar/ prefix and copy them 
 ```python
 import pprint
 from awsome import s3
-from awsome.playground import s3_sandbox, dry_run_sandbox, aws_profile, create_mock_keys
+from awsome.playground import s3_sandbox, dry_run, aws_profile, create_mock_keys
 
 pp = pprint.PrettyPrinter(indent=4)
 ```
@@ -102,12 +102,23 @@ Instead we use the s3_sandbox context manager that provides a moto s3 instance w
 ```python
 with s3_sandbox(['testbucket', 'prodbucket']):
     create_test_data()
-    print('Test bucket:')
+    print('\nTest bucket:')
     pp.pprint(s3.ls('s3://testbucket/', recursive=True))
     print('\nProd bucket:')
     pp.pprint(s3.ls('s3://prodbucket/', recursive=True))
 ```
 
+    echo 'some data' | aws s3 cp - s3://testbucket/foo/bar/customers_1.csv
+    echo 'some data' | aws s3 cp - s3://testbucket/foo/baz/companies_1.csv
+    echo 'some data' | aws s3 cp - s3://testbucket/foo/bar/customers_2.csv
+    echo 'some data' | aws s3 cp - s3://testbucket/foo/baz/companies_2.csv
+    echo 'some data' | aws s3 cp - s3://testbucket/foo/bar/customers_3.csv
+    echo 'some data' | aws s3 cp - s3://testbucket/foo/baz/companies_3.csv
+    echo 'some data' | aws s3 cp - s3://testbucket/foo/bar/customers_4.csv
+    echo 'some data' | aws s3 cp - s3://testbucket/foo/baz/companies_4.csv
+    echo 'some data' | aws s3 cp - s3://testbucket/foo/bar/customers_5.csv
+    echo 'some data' | aws s3 cp - s3://testbucket/foo/baz/companies_5.csv
+    
     Test bucket:
     aws s3 ls --recursive s3://testbucket/
     [   'foo/bar/customers_1.csv',
@@ -124,7 +135,7 @@ with s3_sandbox(['testbucket', 'prodbucket']):
     Prod bucket:
     aws s3 ls --recursive s3://prodbucket/
     []
-    
+
 
 We can see that the sample data has been created correctly.
 
@@ -134,32 +145,46 @@ To make sure that the script does what we want it to we will execute it with a d
 
 One exception is that we don't want to patch the ls function (it doesn't change S3 so it is reasonable not to patch it) because we depend on its output to generate the rest of the commands. We will need set patch_ls to false.
 
-The dry run sandbox context manager also creates a moto instance of S3 so we can rest assured that everything will execute in a sandbox and won't affect our real S3 instance. There is a variant of this context manager called dry_run that just patches the functions but doesn't create a sandbox, so don't use it unless you are sure that all the awsome commands in your code are patched by dry_run (in the future all of them should be patched) and you don't have any boto3/botocore calls (or just run it under a with s3_sandbox).
+The dry_run can only be executed inside a sandbox unless you provide the argument safe=False.
 
 
 ```python
-with dry_run_sandbox(['testbucket', 'prodbucket'], patch_ls=False):
+with s3_sandbox(['testbucket', 'prodbucket']):
     create_test_data()
-    intervention()
+    print('\n')
+    with dry_run(patch_ls=False):
+        intervention()
 ```
 
+    echo 'some data' | aws s3 cp - s3://testbucket/foo/bar/customers_1.csv
+    echo 'some data' | aws s3 cp - s3://testbucket/foo/baz/companies_1.csv
+    echo 'some data' | aws s3 cp - s3://testbucket/foo/bar/customers_2.csv
+    echo 'some data' | aws s3 cp - s3://testbucket/foo/baz/companies_2.csv
+    echo 'some data' | aws s3 cp - s3://testbucket/foo/bar/customers_3.csv
+    echo 'some data' | aws s3 cp - s3://testbucket/foo/baz/companies_3.csv
+    echo 'some data' | aws s3 cp - s3://testbucket/foo/bar/customers_4.csv
+    echo 'some data' | aws s3 cp - s3://testbucket/foo/baz/companies_4.csv
+    echo 'some data' | aws s3 cp - s3://testbucket/foo/bar/customers_5.csv
+    echo 'some data' | aws s3 cp - s3://testbucket/foo/baz/companies_5.csv
+    
+    
     aws s3 ls s3://testbucket/foo/bar/
-    aws s3 cp s3://testbucket/foo/bar/customers_4.csv s3://testbucket/foo/bar/clients_4.csv
-    aws s3 rm s3://testbucket/foo/bar/customers_4.csv
-    aws s3 cp s3://testbucket/foo/bar/clients_4.csv s3://prodbucket/foo/bar/clients_4.csv
-    aws s3 cp s3://testbucket/foo/bar/customers_5.csv s3://testbucket/foo/bar/clients_5.csv
-    aws s3 rm s3://testbucket/foo/bar/customers_5.csv
-    aws s3 cp s3://testbucket/foo/bar/clients_5.csv s3://prodbucket/foo/bar/clients_5.csv
     aws s3 cp s3://testbucket/foo/bar/customers_2.csv s3://testbucket/foo/bar/clients_2.csv
     aws s3 rm s3://testbucket/foo/bar/customers_2.csv
     aws s3 cp s3://testbucket/foo/bar/clients_2.csv s3://prodbucket/foo/bar/clients_2.csv
+    aws s3 cp s3://testbucket/foo/bar/customers_4.csv s3://testbucket/foo/bar/clients_4.csv
+    aws s3 rm s3://testbucket/foo/bar/customers_4.csv
+    aws s3 cp s3://testbucket/foo/bar/clients_4.csv s3://prodbucket/foo/bar/clients_4.csv
     aws s3 cp s3://testbucket/foo/bar/customers_3.csv s3://testbucket/foo/bar/clients_3.csv
     aws s3 rm s3://testbucket/foo/bar/customers_3.csv
     aws s3 cp s3://testbucket/foo/bar/clients_3.csv s3://prodbucket/foo/bar/clients_3.csv
+    aws s3 cp s3://testbucket/foo/bar/customers_5.csv s3://testbucket/foo/bar/clients_5.csv
+    aws s3 rm s3://testbucket/foo/bar/customers_5.csv
+    aws s3 cp s3://testbucket/foo/bar/clients_5.csv s3://prodbucket/foo/bar/clients_5.csv
     aws s3 cp s3://testbucket/foo/bar/customers_1.csv s3://testbucket/foo/bar/clients_1.csv
     aws s3 rm s3://testbucket/foo/bar/customers_1.csv
     aws s3 cp s3://testbucket/foo/bar/clients_1.csv s3://prodbucket/foo/bar/clients_1.csv
-    
+
 
 ### Executing the intervention script in a sandbox
 
@@ -169,7 +194,7 @@ This is where it gets interesting. We have inspected the dry run and everything 
 ```python
 with s3_sandbox(['testbucket', 'prodbucket']):
     create_test_data()
-    print('Test bucket before:')
+    print('\nTest bucket before:')
     pp.pprint(s3.ls('s3://testbucket/', recursive=True))
     print('\nProd bucket before:')
     pp.pprint(s3.ls('s3://prodbucket/', recursive=True))
@@ -184,6 +209,17 @@ with s3_sandbox(['testbucket', 'prodbucket']):
     pp.pprint(s3.ls('s3://prodbucket/', recursive=True))
 ```
 
+    echo 'some data' | aws s3 cp - s3://testbucket/foo/bar/customers_1.csv
+    echo 'some data' | aws s3 cp - s3://testbucket/foo/baz/companies_1.csv
+    echo 'some data' | aws s3 cp - s3://testbucket/foo/bar/customers_2.csv
+    echo 'some data' | aws s3 cp - s3://testbucket/foo/baz/companies_2.csv
+    echo 'some data' | aws s3 cp - s3://testbucket/foo/bar/customers_3.csv
+    echo 'some data' | aws s3 cp - s3://testbucket/foo/baz/companies_3.csv
+    echo 'some data' | aws s3 cp - s3://testbucket/foo/bar/customers_4.csv
+    echo 'some data' | aws s3 cp - s3://testbucket/foo/baz/companies_4.csv
+    echo 'some data' | aws s3 cp - s3://testbucket/foo/bar/customers_5.csv
+    echo 'some data' | aws s3 cp - s3://testbucket/foo/baz/companies_5.csv
+    
     Test bucket before:
     aws s3 ls --recursive s3://testbucket/
     [   'foo/bar/customers_1.csv',
@@ -204,18 +240,18 @@ with s3_sandbox(['testbucket', 'prodbucket']):
     
     Starting intervention:
     aws s3 ls s3://testbucket/foo/bar/
-    aws s3 cp s3://testbucket/foo/bar/customers_4.csv s3://testbucket/foo/bar/clients_4.csv
-    aws s3 rm s3://testbucket/foo/bar/customers_4.csv
-    aws s3 cp s3://testbucket/foo/bar/clients_4.csv s3://prodbucket/foo/bar/clients_4.csv
-    aws s3 cp s3://testbucket/foo/bar/customers_5.csv s3://testbucket/foo/bar/clients_5.csv
-    aws s3 rm s3://testbucket/foo/bar/customers_5.csv
-    aws s3 cp s3://testbucket/foo/bar/clients_5.csv s3://prodbucket/foo/bar/clients_5.csv
     aws s3 cp s3://testbucket/foo/bar/customers_2.csv s3://testbucket/foo/bar/clients_2.csv
     aws s3 rm s3://testbucket/foo/bar/customers_2.csv
     aws s3 cp s3://testbucket/foo/bar/clients_2.csv s3://prodbucket/foo/bar/clients_2.csv
+    aws s3 cp s3://testbucket/foo/bar/customers_4.csv s3://testbucket/foo/bar/clients_4.csv
+    aws s3 rm s3://testbucket/foo/bar/customers_4.csv
+    aws s3 cp s3://testbucket/foo/bar/clients_4.csv s3://prodbucket/foo/bar/clients_4.csv
     aws s3 cp s3://testbucket/foo/bar/customers_3.csv s3://testbucket/foo/bar/clients_3.csv
     aws s3 rm s3://testbucket/foo/bar/customers_3.csv
     aws s3 cp s3://testbucket/foo/bar/clients_3.csv s3://prodbucket/foo/bar/clients_3.csv
+    aws s3 cp s3://testbucket/foo/bar/customers_5.csv s3://testbucket/foo/bar/clients_5.csv
+    aws s3 rm s3://testbucket/foo/bar/customers_5.csv
+    aws s3 cp s3://testbucket/foo/bar/clients_5.csv s3://prodbucket/foo/bar/clients_5.csv
     aws s3 cp s3://testbucket/foo/bar/customers_1.csv s3://testbucket/foo/bar/clients_1.csv
     aws s3 rm s3://testbucket/foo/bar/customers_1.csv
     aws s3 cp s3://testbucket/foo/bar/clients_1.csv s3://prodbucket/foo/bar/clients_1.csv
@@ -242,7 +278,7 @@ with s3_sandbox(['testbucket', 'prodbucket']):
         'foo/bar/clients_3.csv',
         'foo/bar/clients_4.csv',
         'foo/bar/clients_5.csv']
-    
+
 
 Finally we have succesfully validated our script, and we can rest assured that it will do what we intend it to.
 
@@ -260,13 +296,13 @@ with aws_profile(profile='myprofile'):
 
 Next we can use the function create_mock_keys to populate those keys with random (short) data, therefore recreating the same keys that we have in our real buckets. This can help us be even more sure that the script runs correctly.
 
-One caveat is that create_mock_keys requires a marker bucket as a validation before it works so we will have to pass it create_marker_bucket=True. This is a safety measure because if you accidentally run this on your real S3 you likely (hopefully!) won't have a bucket with the same name as our marker_bucket and therefore it won't create the mock keys and won't overwrite your data. Still, exercise caution to only use it in a sandbox.
+We can rest assured that create_mock_keys will not write any data to our real S3 because it only works inside a sandbox.
 
 
 ```python
 from awsome.playground import s3_sandbox
 
-with s3_sandbox(buckets=['test-bucket', 'production-bucket'], create_marker_bucket=True):
+with s3_sandbox(buckets=['test-bucket', 'production-bucket']):
     create_mock_keys('test-bucket', test_keys)
     create_mock_keys('production-bucket', prod_keys)
     
