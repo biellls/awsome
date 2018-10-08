@@ -6,8 +6,6 @@ import boto3
 from awsome import log
 from awsome.uris import peel, parse_s3_uri, uri_type, format_s3_uri
 
-SUCCESS = 'success'
-
 
 def key_depth(key):
     if key == '':
